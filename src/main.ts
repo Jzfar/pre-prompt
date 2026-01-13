@@ -3,8 +3,10 @@
   'use strict'
 
   const PANEL_ID = 'deepseek-mode-panel-v3'
+  const TAB_ID = 'deepseek-mode-tab-v3'
   const LS_KEY = 'deepseek_mode_v3'
   const LS_AUTO = 'deepseek_mode_auto_v3'
+  const LS_COLLAPSED = 'deepseek_panel_collapsed_v3'
 
   const PROMPT_MODES: Record<string, string> = {
     'Reddit 润色': `你是一个资深的 Reddit 用户。请将我接下来发送的文本润色成地道的 Reddit 社区风格英文。
@@ -88,6 +90,21 @@
     localStorage.setItem(LS_AUTO, v ? '1' : '0')
     updatePanelStatus()
   }
+  function isCollapsed() {
+    return localStorage.getItem(LS_COLLAPSED) === '1'
+  }
+  function setCollapsed(collapsed: boolean) {
+    localStorage.setItem(LS_COLLAPSED, collapsed ? '1' : '0')
+  }
+
+  function migrateOldHiddenState() {
+    const oldHidden = localStorage.getItem('ds_panel_hidden_v3')
+    if (oldHidden === '1') {
+      setCollapsed(true)
+      localStorage.removeItem('ds_panel_hidden_v3')
+      log('已迁移旧版隐藏状态到折叠状态')
+    }
+  }
 
   function buildPromptFor(text: string) {
     const mode = getCurrentModeName()
@@ -102,7 +119,7 @@
   }
 
   // -------- 面板 --------
-  function createPanel() {
+  function createFullPanel() {
     if (document.getElementById(PANEL_ID)) return
 
     const panel = document.createElement('div')
@@ -124,16 +141,17 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
       color: #eee;
       backdrop-filter: blur(8px);
+      transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out, visibility 0.2s;
     `
 
     const header = document.createElement('div')
     header.style.cssText = `display:flex; align-items:center; justify-content:space-between; gap:8px;`
     header.innerHTML = `
       <div style="font-weight:700; font-size:14px;">🤖 任务模式</div>
-      <button id="ds_close_btn" title="隐藏" style="
+      <button id="ds_collapse_btn" title="折叠" style="
         border:none; background:transparent; color:#bbb; cursor:pointer;
         font-size:16px; line-height:1; padding:2px 6px;
-      ">×</button>
+      ">－</button>
     `
     panel.appendChild(header)
 
@@ -224,10 +242,11 @@
 
     document.documentElement.appendChild(panel)
 
-    // 绑定隐藏
-    panel.querySelector('#ds_close_btn')?.addEventListener('click', () => {
-      panel.remove()
-      localStorage.setItem('ds_panel_hidden_v3', '1')
+    // 绑定折叠
+    panel.querySelector('#ds_collapse_btn')?.addEventListener('click', () => {
+      setCollapsed(true)
+      updatePanelState()
+      log('面板已折叠')
     })
 
     // 绑定开关
@@ -239,6 +258,81 @@
 
     updatePanelStatus()
     log('面板已注入')
+  }
+
+  function createCollapsedTab() {
+    if (document.getElementById(TAB_ID)) return
+
+    const tab = document.createElement('div')
+    tab.id = TAB_ID
+    tab.style.cssText = `
+      position: fixed;
+      top: 120px;
+      right: 0px;
+      width: 40px;
+      height: 120px;
+      background: rgba(20,20,20,.85);
+      border: 1px solid rgba(255,255,255,.12);
+      border-right: none;
+      border-radius: 12px 0 0 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      z-index: 2147483647;
+      backdrop-filter: blur(8px);
+      transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out, visibility 0.2s, background 0.2s ease;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color: #eee;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 8px 4px;
+    `
+    tab.textContent = '🤖 任务模式'
+
+    tab.addEventListener('click', () => {
+      setCollapsed(false)
+      updatePanelState()
+      log('面板已展开')
+    })
+
+    tab.addEventListener('mouseenter', () => {
+      tab.style.background = 'rgba(40,40,40,.9)'
+    })
+
+    tab.addEventListener('mouseleave', () => {
+      tab.style.background = 'rgba(20,20,20,.85)'
+    })
+
+    document.documentElement.appendChild(tab)
+  }
+
+  function updatePanelState() {
+    const panel = document.getElementById(PANEL_ID)
+    const tab = document.getElementById(TAB_ID)
+
+    if (isCollapsed()) {
+      panel?.style.setProperty('opacity', '0')
+      panel?.style.setProperty('visibility', 'hidden')
+      panel?.style.setProperty('transform', 'translateX(100%)')
+
+      tab?.style.setProperty('opacity', '1')
+      tab?.style.setProperty('visibility', 'visible')
+      tab?.style.setProperty('transform', 'translateX(0)')
+      return
+    }
+
+    panel?.style.setProperty('opacity', '1')
+    panel?.style.setProperty('visibility', 'visible')
+    panel?.style.setProperty('transform', 'translateX(0)')
+
+    tab?.style.setProperty('opacity', '0')
+    tab?.style.setProperty('visibility', 'hidden')
+    tab?.style.setProperty('transform', 'translateX(100%)')
   }
 
   function updatePanelStatus() {
@@ -335,10 +429,15 @@
 
   // -------- SPA 自恢复：页面重绘/切换会把面板弄没 --------
   function ensurePanel() {
-    if (localStorage.getItem('ds_panel_hidden_v3') === '1') return
-    if (!document.getElementById(PANEL_ID)) createPanel()
+    const panel = document.getElementById(PANEL_ID)
+    const tab = document.getElementById(TAB_ID)
+
+    if (!panel) createFullPanel()
+    if (!tab) createCollapsedTab()
+    updatePanelState()
   }
 
+  migrateOldHiddenState()
   ensurePanel()
 
   const mo = new MutationObserver(() => ensurePanel())

@@ -13,4 +13,6 @@ pnpm-debug.log*
 
 .DS_Store
 
-tmp
+tmp*
+
+docs/design
