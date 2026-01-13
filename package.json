@@ -1,0 +1,28 @@
+{
+  "name": "pre-prompt",
+  "version": "1.0.0",
+  "description": "本项目用来开发chrome插件，为网页使用大模型提供预装prompt，节省用户针对固定任务的prompt调试时间",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jzfar/pre-prompt.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Jzfar/pre-prompt/issues"
+  },
+  "homepage": "https://github.com/Jzfar/pre-prompt#readme",
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-monkey": "^7.1.8"
+  }
+}
